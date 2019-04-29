@@ -9,7 +9,7 @@ NUM_SCREEN_FEATURES = len(features.SCREEN_FEATURES)
 NUM_MINIMAP_FEATURES = len(features.MINIMAP_FEATURES)
 SCREEN_SIZE = (84, 84)
 MINIMAP_SIZE = (64, 64)
-NUM_NON_SPATIAL_FEATURES = len(features.Player)
+NUM_ACTIONS = len(actions.FUNCTIONS)
 
 
 class TestAgent():
@@ -27,10 +27,10 @@ class TestAgent():
         self.replay = ExpReplay(10000)
 
         self.minimap = tf.placeholder(shape=[None, NUM_MINIMAP_FEATURES, *MINIMAP_SIZE],
-									  dtype=tf.float32)  # TODO: Transpose into [0, 3, 2, 1]?
+									  dtype=tf.float32) # TODO: Transpose into [0, 3, 2, 1]?
         self.screen = tf.placeholder(shape=[None, NUM_SCREEN_FEATURES, *SCREEN_SIZE],
 									 dtype=tf.float32)
-        self.info = tf.placeholder(shape=[None, NUM_NON_SPATIAL_FEATURES],
+        self.info = tf.placeholder(shape=[None, NUM_ACTIONS],
 								   dtype=tf.float32)
 
         mconv1 = layers.conv2d(tf.transpose(self.minimap, [0, 2, 3, 1]),
@@ -76,8 +76,7 @@ class TestAgent():
                                          activation_fn=tf.nn.relu,
                                          scope='feat_fc')
         non_spatial_action = layers.fully_connected(feat_fc,
-                                                    num_outputs=len(
-                                                        actions.FUNCTIONS),
+                                                    num_outputs=NUM_ACTIONS,
                                                     activation_fn=tf.nn.softmax,
                                                     scope='non_spatial_action')
         value = tf.reshape(layers.fully_connected(feat_fc,
