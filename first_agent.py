@@ -3,7 +3,7 @@ from tensorflow.contrib import layers
 from pysc2.lib import actions
 from pysc2.lib import features
 from expreplay import ExpReplay
-import numpy
+import numpy as np
 from utils import preprocess_minimap, preprocess_screen
 
 NUM_SCREEN_FEATURES = len(features.SCREEN_FEATURES)
@@ -31,8 +31,8 @@ class TestAgent():
                                       dtype=tf.float32)
         self.screen = tf.placeholder(shape=[None, NUM_SCREEN_FEATURES, *SCREEN_SIZE],
                                      dtype=tf.float32)
-        self.info = tf.placeholder(shape=[None, NUM_ACTIONS],
-                                   dtype=tf.float32)
+        self.non_spatial = tf.placeholder(shape=[None, NUM_ACTIONS],
+                                          dtype=tf.float32)
         self.screen_processed = preprocess_screen(
             self.screen)
 
@@ -59,7 +59,7 @@ class TestAgent():
                                     kernel_size=3,
                                     stride=1,
                                     scope='sconv2')
-        self.info_fc = layers.fully_connected(layers.flatten(self.info),
+        self.info_fc = layers.fully_connected(layers.flatten(self.non_spatial),
                                               num_outputs=256,
                                               activation_fn=tf.tanh,
                                               scope='info_fc')
@@ -72,7 +72,8 @@ class TestAgent():
                                             stride=1,
                                             activation_fn=None,
                                             scope='spatial_action')
-        self.spatial_action = tf.nn.softmax(layers.flatten(self.spatial_action))
+        self.spatial_action = tf.nn.softmax(
+            layers.flatten(self.spatial_action))
 
         # Compute non spatial actions and value
         self.feat_fc = tf.concat(
@@ -94,9 +95,24 @@ class TestAgent():
         """Do action here"""
         self.steps += 1
         self.reward += timestep.reward
-        function_id = numpy.random.choice(
+
+        observation = timestep.observation
+        screen_features = observation.feature_screen
+        minimap_features = observation.feature_minimap
+        available_actions = observation.available_actions
+        action_mask = np.zeros(NUM_ACTIONS, dtype=np.int32)
+        action_mask[available_actions] = 1
+
+        feed_dict = {self.minimap: minimap_features,
+                     self.screen: screen_features,
+                     self.non_spatial: action_mask}
+        non_spatial_action, spatial_action = self.sess.run(
+            [self.non_spatial_action, self.spatial_action],
+            feed_dict=feed_dict)
+
+        function_id = np.random.choice(
             timestep.observation.available_actions)
-        args = [[numpy.random.randint(0, size) for size in arg.sizes]
+        args = [[np.random.randint(0, size) for size in arg.sizes]
                 for arg in self.action_spec.functions[function_id].args]
         return actions.FunctionCall(function_id, args)
 
@@ -107,9 +123,10 @@ class TestAgent():
     def update(self):
         print("Update agent here")
 
-    def setup(self, obs_spec, action_spec):
+    def setup(self, obs_spec, action_spec, sess):
         self.obs_spec = obs_spec
         self.action_spec = action_spec
+        self.sess = sess
 
     def reset(self):
         self.episodes += 1
