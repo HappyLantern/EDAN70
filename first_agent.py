@@ -110,11 +110,28 @@ class TestAgent():
             [self.non_spatial_action, self.spatial_action],
             feed_dict=feed_dict)
 
-        function_id = np.random.choice(
-            timestep.observation.available_actions)
-        args = [[np.random.randint(0, size) for size in arg.sizes]
-                for arg in self.action_spec.functions[function_id].args]
-        return actions.FunctionCall(function_id, args)
+        # TODO: Below is copy pasted; might be wrong
+        # Select an action and a spatial target
+        non_spatial_action = non_spatial_action.ravel()
+        spatial_action = spatial_action.ravel()
+        valid_actions = timestep.observation['available_actions']
+        act_id = valid_actions[np.argmax(non_spatial_action[valid_actions])]
+        target = np.argmax(spatial_action)
+        target = [int(target // 84), int(target % 84)]
+
+        # Set act_id and act_args
+        act_args = []
+        for arg in actions.FUNCTIONS[act_id].args:
+            if arg.name in ('screen', 'minimap', 'screen2'):
+                act_args.append([target[1], target[0]])
+            else:
+                act_args.append([0])  # TODO: Be careful
+
+        # function_id = np.random.choice(
+        #    timestep.observation.available_actions)
+        # args = [[np.random.randint(0, size) for size in arg.sizes]
+        #        for arg in self.action_spec.functions[function_id].args]
+        return actions.FunctionCall(act_id, act_args)
 
     def record_step(self, timesteps0, actions, timesteps1):
         print("Save here")
