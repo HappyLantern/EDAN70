@@ -1,3 +1,6 @@
+from pysc2.lib import features
+import tensorflow as tf
+
 def preprocess_minimap(minimap):
     """
     Preprocess minimap feature layers by transforming categorical features into a continuous
