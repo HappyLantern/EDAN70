@@ -16,7 +16,7 @@ NUM_ACTIONS = len(actions.FUNCTIONS)
 class TestAgent():
 
     def __init__(self):
-        print("\n", "-+"*40, "\nCreate network here\n" + "-+"*40, "\n")
+        print("\n" + "-+"*40, "\nCreate network here\n" + "-+"*40, "\n")
         self.reward = 0
         self.episodes = 0
         self.steps = 0
@@ -147,6 +147,8 @@ class TestAgent():
         self.obs_spec = obs_spec
         self.action_spec = action_spec
         self.sess = sess
+        sess.run(tf.global_variables_initializer())
+
 
     def reset(self):
         self.episodes += 1
