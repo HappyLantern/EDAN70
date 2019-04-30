@@ -96,6 +96,8 @@ def run_loop(agents, env, max_agent_steps, max_episodes):
                            for agent, timestep in zip(agents, timesteps)]
                 #print("Action:", actions)
 
+                print("Action:", actions[0].name)
+
                 # Apply actions to the environment.
                 timesteps_new = env.step(actions)
                 # Record the <s, a, r, s'> for training
