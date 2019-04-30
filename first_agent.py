@@ -138,9 +138,9 @@ class TestAgent():
         #        for arg in self.action_spec.functions[function_id].args]
         return actions.FunctionCall(act_id, act_args)
 
-    def record_step(self, timesteps0, actions, timesteps1):
+    def record_step(self, obs, action, reward, new_obs):
         #print("Save here")
-        self.replay.add([timesteps0, actions, timesteps1])
+        self.replay.add([obs, action, reward, new_obs])
 
     def update(self):
         #print("Update agent here")

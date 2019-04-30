@@ -99,7 +99,8 @@ def run_loop(agents, env, max_agent_steps, max_episodes):
                 # Apply actions to the environment.
                 timesteps_new = env.step(actions)
                 # Record the <s, a, r, s'> for training
-                agent.record_step(timesteps, actions, timesteps_new)
+                agent.record_step(timesteps.observation, actions,
+                                  timesteps.reward, timesteps_new.observation)
                 timesteps = timesteps_new
 
                 # Train the network after each episode
