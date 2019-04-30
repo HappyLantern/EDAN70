@@ -112,15 +112,17 @@ class TestAgent():
         non_spatial_action, spatial_action = self.sess.run(
             [self.non_spatial_action, self.spatial_action],
             feed_dict=feed_dict)
+        #print("Non_spatial_action:", non_spatial_action, "\nSpatial_action:", spatial_action)
 
         # TODO: Below is copy pasted; might be wrong
         # Select an action and a spatial target
         non_spatial_action = non_spatial_action.ravel()
         spatial_action = spatial_action.ravel()
-        valid_actions = timestep.observation['available_actions']
+        valid_actions = timestep.observation.available_actions
         act_id = valid_actions[np.argmax(non_spatial_action[valid_actions])]
         target = np.argmax(spatial_action)
-        target = [int(target // 84), int(target % 84)]
+        target = [int(target // 64), int(target % 64)] #TODO: Changed from 84 to 64
+        
 
         # Set act_id and act_args
         act_args = []
@@ -137,11 +139,12 @@ class TestAgent():
         return actions.FunctionCall(act_id, act_args)
 
     def record_step(self, timesteps0, actions, timesteps1):
-        print("Save here")
+        #print("Save here")
         self.replay.add([timesteps0, actions, timesteps1])
 
     def update(self):
-        print("Update agent here")
+        #print("Update agent here")
+        pass
 
     def setup(self, obs_spec, action_spec, sess):
         self.obs_spec = obs_spec
