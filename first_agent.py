@@ -8,7 +8,7 @@ from utils import preprocess_minimap, preprocess_screen
 
 NUM_SCREEN_FEATURES = len(features.SCREEN_FEATURES)
 NUM_MINIMAP_FEATURES = len(features.MINIMAP_FEATURES)
-SCREEN_SIZE = (84, 84)
+SCREEN_SIZE = (64, 64)
 MINIMAP_SIZE = (64, 64)
 NUM_ACTIONS = len(actions.FUNCTIONS)
 
@@ -16,7 +16,7 @@ NUM_ACTIONS = len(actions.FUNCTIONS)
 class TestAgent():
 
     def __init__(self):
-        print("Create network here")
+        print("\n", "-+"*40, "\nCreate network here\n" + "-+"*40, "\n")
         self.reward = 0
         self.episodes = 0
         self.steps = 0
@@ -28,9 +28,9 @@ class TestAgent():
         self.replay = ExpReplay(10000)
 
         self.minimap = tf.placeholder(shape=[None, NUM_MINIMAP_FEATURES, *MINIMAP_SIZE],
-                                      dtype=tf.float32)
+                                      dtype=tf.int32)
         self.screen = tf.placeholder(shape=[None, NUM_SCREEN_FEATURES, *SCREEN_SIZE],
-                                     dtype=tf.float32)
+                                     dtype=tf.int32)
         self.non_spatial = tf.placeholder(shape=[None, NUM_ACTIONS],
                                           dtype=tf.float32)
         self.screen_processed = preprocess_screen(
@@ -39,7 +39,7 @@ class TestAgent():
         self.minimap_processed = preprocess_minimap(
             self.minimap)
 
-        self.mconv1 = layers.conv2d(tf.transpose(self.minimap, [0, 2, 3, 1]),
+        self.mconv1 = layers.conv2d(self.minimap_processed,
                                     num_outputs=16,
                                     kernel_size=5,
                                     stride=1,
@@ -49,7 +49,7 @@ class TestAgent():
                                     kernel_size=3,
                                     stride=1,
                                     scope='mconv2')
-        self.sconv1 = layers.conv2d(tf.transpose(self.screen, [0, 2, 3, 1]),
+        self.sconv1 = layers.conv2d(self.screen_processed,
                                     num_outputs=16,
                                     kernel_size=5,
                                     stride=1,
@@ -98,10 +98,13 @@ class TestAgent():
 
         observation = timestep.observation
         screen_features = observation.feature_screen
+        screen_features = np.expand_dims(screen_features, axis=0)
         minimap_features = observation.feature_minimap
+        minimap_features = np.expand_dims(minimap_features, axis=0)
         available_actions = observation.available_actions
         action_mask = np.zeros(NUM_ACTIONS, dtype=np.int32)
         action_mask[available_actions] = 1
+        action_mask = np.expand_dims(action_mask, axis=0)
 
         feed_dict = {self.minimap: minimap_features,
                      self.screen: screen_features,

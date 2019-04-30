@@ -45,7 +45,7 @@ def preprocess_minimap(minimap):
     return tf.transpose( # return with shape (batch, x, y, channels)
         preprocessed_minimap,
         perm=[0, 2, 1, 3],
-        name="transposed_minimap")
+        name="preprocessed_minimap")
 
 def preprocess_screen(screen):
     """
@@ -73,8 +73,7 @@ def preprocess_screen(screen):
         if feature.type == features.FeatureType.CATEGORICAL:
             one_hot = tf.one_hot(
                 screen_feature,
-                depth=feature.scale,
-                axis=-1)
+                depth=feature.scale)
             preprocessed_feature = tf.layers.conv2d(
                 inputs=one_hot,
                 filters=1,
@@ -91,4 +90,4 @@ def preprocess_screen(screen):
     return tf.transpose( # return with shape (batch, x, y, channels)
         preprocessed_screen,
         perm=[0, 2, 1, 3],
-        name="transposed_screen")
+        name="preprocessed_screen")
