@@ -1,6 +1,7 @@
 from pysc2.lib import features
 import tensorflow as tf
 
+
 def preprocess_minimap(minimap):
     """
     Preprocess minimap feature layers by transforming categorical features into a continuous
@@ -10,7 +11,7 @@ def preprocess_minimap(minimap):
     Parameters
     ----------
     minimap : Tensor
-        A 4D minimap tensor with shape (batch, channels, y, x)
+        A 4D minimap tensor with shape (batch, x, y, channels)
 
     Returns
     -------
@@ -19,17 +20,18 @@ def preprocess_minimap(minimap):
     """
 
     assert len(minimap.shape) == 4
-    assert minimap.shape[1] == len(features.MINIMAP_FEATURES)
+    assert minimap.shape[3] == len(features.MINIMAP_FEATURES)
 
     preprocessed_minimap = []
 
     for i, feature in enumerate(features.MINIMAP_FEATURES):
-        minimap_feature = minimap[:, i, :, :] # minimap[batch, channels, y, x]; transform in channel dimension
+        minimap_feature = minimap[:, :, :, i]
         if feature.type == features.FeatureType.CATEGORICAL:
             one_hot = tf.one_hot(
                 minimap_feature,
                 depth=feature.scale,
-                axis=1) # Encode in channel dimension
+                axis=3,
+                name='embed_ohe')  # Encode in channel dimension
             preprocessed_feature = tf.layers.conv2d(
                 inputs=one_hot,
                 filters=1,
@@ -38,15 +40,13 @@ def preprocess_minimap(minimap):
             preprocessed_minimap.append(preprocessed_feature)
         elif feature.type == features.FeatureType.SCALAR:
             preprocessed_feature = tf.log(tf.cast(minimap_feature, tf.float32) + 1.,
-                               name="log")
-            expanded = tf.expand_dims(preprocessed_feature, -1) # insert dim at the end
+                                          name="log")
+            expanded = tf.expand_dims(preprocessed_feature, -1)
             preprocessed_minimap.append(expanded)
+            
+    preprocessed_minimap = tf.concat(preprocessed_minimap, axis=-1)
+    return preprocessed_minimap
 
-    preprocessed_minimap = tf.concat(preprocessed_minimap, axis=-1) # Concat channels in last dimension
-    return tf.transpose( # return with shape (batch, x, y, channels)
-        preprocessed_minimap,
-        perm=[0, 2, 1, 3],
-        name="preprocessed_minimap")
 
 def preprocess_screen(screen):
     """
@@ -57,7 +57,7 @@ def preprocess_screen(screen):
     Parameters
     ----------
     minimap : Tensor
-        A 4D screen tensor with shape (batch, channels, y, x)
+        A 4D screen tensor with shape (batch, x, y, channels)
 
     Returns
     -------
@@ -65,17 +65,18 @@ def preprocess_screen(screen):
         A preprocessed 4D screen tensor with shape (batch, x, y, channels)
     """
     assert len(screen.shape) == 4
-    assert screen.shape[1] == len(features.SCREEN_FEATURES)
+    assert screen.shape[3] == len(features.SCREEN_FEATURES)
 
     preprocessed_screen = []
 
     for i, feature in enumerate(features.SCREEN_FEATURES):
-        screen_feature = screen[:, i, :, :] # screen[batch, channel, y, x]; transform in channel dimension
+        screen_feature = screen[:, :, :, i]
         if feature.type == features.FeatureType.CATEGORICAL:
             one_hot = tf.one_hot(
                 screen_feature,
                 depth=feature.scale,
-                axis=1) # Encode in channel dimension
+                axis=3, # Encode in channel dimension
+                name='embed_ohe')
             preprocessed_feature = tf.layers.conv2d(
                 inputs=one_hot,
                 filters=1,
@@ -84,12 +85,9 @@ def preprocess_screen(screen):
             preprocessed_screen.append(preprocessed_feature)
         elif feature.type == features.FeatureType.SCALAR:
             preprocessed_feature = tf.log(tf.cast(screen_feature, tf.float32) + 1.,
-                               name="log")
-            expanded = tf.expand_dims(preprocessed_feature, -1) # insert dim at the end
+                                          name="log")
+            expanded = tf.expand_dims(preprocessed_feature, -1)
             preprocessed_screen.append(expanded)
 
-    preprocessed_screen = tf.concat(preprocessed_screen, axis=-1) # Concat channels in last dimension
-    return tf.transpose( # return with shape (batch, x, y, channels)
-        preprocessed_screen,
-        perm=[0, 2, 1, 3],
-        name="preprocessed_screen")
+    preprocessed_screen = tf.concat(preprocessed_screen, axis=-1)
+    return preprocessed_screen

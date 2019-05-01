@@ -35,9 +35,9 @@ class TestAgent():
         self.non_spatial = tf.placeholder(shape=[None, NUM_ACTIONS],
                                           dtype=tf.float32)
 
-        # Preprocess for net feed
-        self.screen_processed = preprocess_screen(self.screen)
-        self.minimap_processed = preprocess_minimap(self.minimap)
+        # Preprocess for net fee
+        self.screen_processed = preprocess_screen(tf.transpose(self.screen, perm=[0, 3, 2, 1]))
+        self.minimap_processed = preprocess_minimap(tf.transpose(self.minimap, perm=[0, 3, 2, 1]))
 
         # Minimap conv layers
         self.mconv1 = layers.conv2d(self.minimap_processed,
@@ -253,7 +253,7 @@ class TestAgent():
             self.spatial_action_selected: spatial_action_selected,
             self.valid_non_spatial_action: valid_non_spatial_action,
             self.non_spatial_action_selected: non_spatial_action_selected}
-        self.tf_session.run(self.train_op, feed_dict=feed)
+        self.tf_session.run(self.train_op, feed_dict=feed, options = tf.RunOptions(report_tensor_allocations_upon_oom = True))
 
     """ Setup agent """
     def setup(self, tf_session):
