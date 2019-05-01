@@ -71,11 +71,9 @@ def run_loop(agents, env, max_agent_steps, max_episodes):
     total_episodes = 0
     start_time = time.time()
 
-    observation_spec = env.observation_spec()
-    action_spec = env.action_spec()
     tf_session = tf.Session()
-    for agent, obs_spec, act_spec in zip(agents, observation_spec, action_spec):
-        agent.setup(obs_spec, act_spec, tf_session)
+    for agent in agents:
+        agent.setup(tf_session)
 
     agent = agents[0]
 
@@ -86,23 +84,24 @@ def run_loop(agents, env, max_agent_steps, max_episodes):
             total_episodes += 1
             done = False
             total_reward = 0
-            timesteps = env.reset()
+            timestep = env.reset()
+        #    print(timestep)
             # agent.reset()
 
             while not done:
                 #total_frames += 1
                 # Ask agent for actions
                 actions = [agent.step(timestep)
-                           for agent, timestep in zip(agents, timesteps)]
-                #print("Action:", actions)
+                           for agent, timestep in zip(agents, timestep)]
 
                 # Apply actions to the environment.
-                timesteps_new = env.step(actions)
-                # Record the <s, a, r, s'> for training
-                agent.record_step(timesteps.observation, actions,
-                                  timesteps.reward, timesteps_new.observation)
-                timesteps = timesteps_new
+                old_timestep = timestep
+                timestep = env.step(actions)
 
+                # Record the <s, a, r, s'> for training
+                for agent, old_step, step in zip(agents, old_timestep, timestep):
+                    agent.record_step(old_step.observation, actions,
+                                      step.reward, step.observation)
                 # Train the network after each episode
                 agent.update()
     except KeyboardInterrupt:

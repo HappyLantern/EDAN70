@@ -4,7 +4,7 @@ import tensorflow as tf
 def preprocess_minimap(minimap):
     """
     Preprocess minimap feature layers by transforming categorical features into a continuous
-    space (one-hot encoding in the channel (feature) dimension followed by 1x1 convolution) 
+    space (one-hot encoding in the channel (feature) dimension followed by 1x1 convolution)
     and by re-scaling numerical values using the log transform.
 
     Parameters
@@ -17,12 +17,12 @@ def preprocess_minimap(minimap):
     Tensor
         A preprocessed 4D minimap tensor with shape (batch, x, y, channels)
     """
-    
+
     assert len(minimap.shape) == 4
     assert minimap.shape[1] == len(features.MINIMAP_FEATURES)
-    
+
     preprocessed_minimap = []
-    
+
     for i, feature in enumerate(features.MINIMAP_FEATURES):
         minimap_feature = minimap[:, i, :, :] # minimap[batch, channels, y, x]; transform in channel dimension
         if feature.type == features.FeatureType.CATEGORICAL:
@@ -40,7 +40,7 @@ def preprocess_minimap(minimap):
                                name="log")
             expanded = tf.expand_dims(preprocessed_feature, -1) # insert dim at the end
             preprocessed_minimap.append(expanded)
-            
+
     preprocessed_minimap = tf.concat(preprocessed_minimap, axis=-1)
     return tf.transpose( # return with shape (batch, x, y, channels)
         preprocessed_minimap,
@@ -50,7 +50,7 @@ def preprocess_minimap(minimap):
 def preprocess_screen(screen):
     """
     Preprocess screen feature layers by transforming categorical features into a continuous
-    space (one-hot encoding in the channel (feature) dimension followed by 1x1 convolution) 
+    space (one-hot encoding in the channel (feature) dimension followed by 1x1 convolution)
     and by re-scaling numerical values using the log transform.
 
     Parameters
@@ -65,9 +65,9 @@ def preprocess_screen(screen):
     """
     assert len(screen.shape) == 4
     assert screen.shape[1] == len(features.SCREEN_FEATURES)
-    
+
     preprocessed_screen = []
-    
+
     for i, feature in enumerate(features.SCREEN_FEATURES):
         screen_feature = screen[:, i, :, :] # screen[batch, channel, y, x]; transform in channel dimension
         if feature.type == features.FeatureType.CATEGORICAL:
@@ -85,7 +85,7 @@ def preprocess_screen(screen):
                                name="log")
             expanded = tf.expand_dims(preprocessed_feature, -1) # insert dim at the end
             preprocessed_screen.append(expanded)
-            
+
     preprocessed_screen = tf.concat(preprocessed_screen, axis=-1)
     return tf.transpose( # return with shape (batch, x, y, channels)
         preprocessed_screen,
