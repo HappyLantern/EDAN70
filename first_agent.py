@@ -126,6 +126,69 @@ class TestAgent():
         grads = opt.compute_gradients(loss)
         self.train_op = opt.apply_gradients(grads)
 
+        #------------------------------------------------------------------------------------
+        # Haberer opt graph
+        #------------------------------------------------------------------------------------
+        # Optimization input
+        self.actions = tf.placeholder(
+            tf.float32,
+            [None, NUM_ACTIONS],
+            name="actions")
+
+        self.returns = tf.placeholder(
+            tf.float32,
+            [None],
+            name="returns")
+
+        # compute advantage
+        self.action_probability = tf.reduce_sum(
+            self.spatial_action * self.actions,
+            axis=1,
+            name="action_probability")
+
+        self.args_probability = 1. #TODO: Check haberers implementation
+        # for arg_type in self.arguments:
+        #     arg_prob = tf.reduce_sum(
+        #         self.arguments[arg_type] * self.argument_policy[arg_type])
+        #     nonzero_probs = tf.cond(
+        #         tf.logical_not(tf.equal(arg_prob, 0)),
+        #         true_fn=lambda: arg_prob,
+        #         false_fn=lambda: 1.)
+        #     self.args_probability *= nonzero_probs
+
+        self.advantage = tf.subtract(
+            self.returns,
+            tf.squeeze(tf.stop_gradient(self.value)),
+            name="advantage")
+
+        # a2c gradient = policy gradient + value gradient + regularization
+        self.policy_gradient = -tf.reduce_mean(
+            (self.advantage *
+             tf.log(self.action_probability * self.args_probability)),
+            name="policy_gradient")
+
+        self.value_gradient = -tf.reduce_mean(
+            self.advantage * tf.squeeze(self.value),
+            name="value_gradient")
+
+        # only including function identifier entropy, not args
+        self.entropy = tf.reduce_sum(
+            self.spatial_action * tf.log(self.spatial_action),
+            name="entropy_regularization")
+
+        self.value_gradient_strength = 1 #TODO: change this too
+        self.regularization_strength = 1 #TODO: change this lel
+        self.a2c_gradient = tf.add_n(
+            inputs=[self.policy_gradient,
+                    self.value_gradient_strength * self.value_gradient,
+                    self.regularization_strength * self.entropy],
+            name="a2c_gradient")
+
+        self.global_step = 1 #TODO: change!!1!!
+        self.optimizer = tf.train.RMSPropOptimizer(
+            self.learning_rate).minimize(self.a2c_gradient,
+                                         global_step=self.global_step)
+
     """ Choose actions based on observation (timestep) """
     def step(self, timestep):
         self.steps += 1
