@@ -130,6 +130,11 @@ class TestAgent():
         # Haberer opt graph
         #------------------------------------------------------------------------------------
         # Optimization input
+        self.global_step = tf.Variable(
+            0,
+            trainable=False,
+            name="global_step")
+
         self.actions = tf.placeholder(
             tf.float32,
             [None, NUM_ACTIONS],
@@ -142,7 +147,7 @@ class TestAgent():
 
         # compute advantage
         self.action_probability = tf.reduce_sum(
-            self.spatial_action * self.actions,
+            self.non_spatial_action * self.actions,
             axis=1,
             name="action_probability")
 
@@ -173,7 +178,7 @@ class TestAgent():
 
         # only including function identifier entropy, not args
         self.entropy = tf.reduce_sum(
-            self.spatial_action * tf.log(self.spatial_action),
+            self.non_spatial_action * tf.log(self.non_spatial_action),
             name="entropy_regularization")
 
         self.value_gradient_strength = 1 #TODO: change this too
@@ -184,7 +189,6 @@ class TestAgent():
                     self.regularization_strength * self.entropy],
             name="a2c_gradient")
 
-        self.global_step = 1 #TODO: change!!1!!
         self.optimizer = tf.train.RMSPropOptimizer(
             self.learning_rate).minimize(self.a2c_gradient,
                                          global_step=self.global_step)
