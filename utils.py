@@ -29,7 +29,7 @@ def preprocess_minimap(minimap):
             one_hot = tf.one_hot(
                 minimap_feature,
                 depth=feature.scale,
-                axis = -1)
+                axis=1) # Encode in channel dimension
             preprocessed_feature = tf.layers.conv2d(
                 inputs=one_hot,
                 filters=1,
@@ -42,7 +42,7 @@ def preprocess_minimap(minimap):
             expanded = tf.expand_dims(preprocessed_feature, -1) # insert dim at the end
             preprocessed_minimap.append(expanded)
 
-    preprocessed_minimap = tf.concat(preprocessed_minimap, axis=-1)
+    preprocessed_minimap = tf.concat(preprocessed_minimap, axis=-1) # Concat channels in last dimension
     return tf.transpose( # return with shape (batch, x, y, channels)
         preprocessed_minimap,
         perm=[0, 2, 1, 3],
@@ -75,7 +75,7 @@ def preprocess_screen(screen):
             one_hot = tf.one_hot(
                 screen_feature,
                 depth=feature.scale,
-                axis = -1)
+                axis=1) # Encode in channel dimension
             preprocessed_feature = tf.layers.conv2d(
                 inputs=one_hot,
                 filters=1,
@@ -88,7 +88,7 @@ def preprocess_screen(screen):
             expanded = tf.expand_dims(preprocessed_feature, -1) # insert dim at the end
             preprocessed_screen.append(expanded)
 
-    preprocessed_screen = tf.concat(preprocessed_screen, axis=-1)
+    preprocessed_screen = tf.concat(preprocessed_screen, axis=-1) # Concat channels in last dimension
     return tf.transpose( # return with shape (batch, x, y, channels)
         preprocessed_screen,
         perm=[0, 2, 1, 3],

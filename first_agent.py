@@ -68,7 +68,7 @@ class TestAgent():
                                               scope='info_fc')
 
         # Compute spatial actions
-        self.feat_conv = tf.concat([self.mconv2, self.sconv2], axis=3)
+        self.feat_conv = tf.concat([self.mconv2, self.sconv2], axis=3) # Axis 3=channels differ in size
         self.spatial_action = layers.conv2d(self.feat_conv,
                                             num_outputs=1,
                                             kernel_size=1,
