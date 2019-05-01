@@ -64,44 +64,37 @@ flags.DEFINE_bool("save_replay", True, "Whether to save a replay at the end.")
 flags.DEFINE_string("map", None, "Name of a map to use.")
 flags.mark_flag_as_required("map")
 
-
-def run_loop(agents, env, max_agent_steps, max_episodes):
+def run_loop(agent, env, max_agent_steps, max_episodes):
 
     total_frames = 0
     total_episodes = 0
     start_time = time.time()
 
     tf_session = tf.Session()
-    for agent in agents:
-        agent.setup(tf_session)
-
-    agent = agents[0]
+    agent.setup(tf_session)
 
     history = []
     try:
         for ep in range(1, max_episodes):
-            # while True:
             total_episodes += 1
             done = False
             total_reward = 0
             timestep = env.reset()
-        #    print(timestep)
             # agent.reset()
 
             while not done:
-                #total_frames += 1
+                total_frames += 1
                 # Ask agent for actions
-                actions = [agent.step(timestep)
-                           for agent, timestep in zip(agents, timestep)]
+                action = agent.step(timestep[0])
 
                 # Apply actions to the environment.
                 old_timestep = timestep
-                timestep = env.step(actions)
+                timestep = env.step([action])
 
                 # Record the <s, a, r, s'> for training
-                for agent, old_step, step in zip(agents, old_timestep, timestep):
-                    agent.record_step(old_step.observation, actions,
-                                      step.reward, step.observation)
+                agent.record_step(old_timestep[0].observation, action,
+                                    timestep[0].reward, timestep[0].observation)
+
                 # Train the network after each episode
                 agent.update()
     except KeyboardInterrupt:
@@ -109,8 +102,7 @@ def run_loop(agents, env, max_agent_steps, max_episodes):
     finally:
         print("Looks good")
 
-
-def run_thread(agent_classes, players, map_name, visualize):
+def run_thread(agent, players, map_name, visualize):
     with sc2_env.SC2Env(
             map_name=FLAGS.map,
             players=players,
@@ -126,26 +118,24 @@ def run_thread(agent_classes, players, map_name, visualize):
             disable_fog=FLAGS.disable_fog,
             visualize=False) as env:
         env = available_actions_printer.AvailableActionsPrinter(env)
-        agents = [agent_cls() for agent_cls in agent_classes]
-        run_loop(agents, env, FLAGS.max_agent_steps, FLAGS.max_episodes)
-
+        run_loop(agent, env, FLAGS.max_agent_steps, FLAGS.max_episodes)
 
 def main(unused_argv):
 
-    agent_classes = []
     players = []
 
     # Add agent class/module and players
     agent_type, agent_name = FLAGS.agent.rsplit(
-        ".", 1)  # split the agent and agent name
+        ".", 1)
+
     agent_class = getattr(importlib.import_module(
-        agent_type), agent_name)  # RandomAgent object
-    agent_classes.append(agent_class)
+        agent_type), agent_name)
+    agent = agent_class()
 
     players.append(sc2_env.Agent(sc2_env.Race[FLAGS.agent_race],
                                  FLAGS.agent_name or agent_name))
 
-    run_thread(agent_classes, players, FLAGS.map, FLAGS.render)
+    run_thread(agent, players, FLAGS.map, FLAGS.render)
 
 
 #
