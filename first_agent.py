@@ -22,7 +22,7 @@ class TestAgent():
         self.steps = 0
         self.tf_session = None
 
-        learning_rate = 1e-4
+        self.learning_rate = 1e-4
         self.gamma = 0.99
         self.replay = ExpReplay(10000)
         print("\n" + "-+"*40, "\nCreate network here\n" + "-+"*40, "\n")
@@ -94,9 +94,37 @@ class TestAgent():
                                                        activation_fn=None,
                                                        scope='value'), [-1])
 
+                                                       # t_vars = tf.trainable_variables()
+                                                       # self.indices = tf.range(0, tf.reduce_sum([tf.reduce_prod(v.shape) for v in tf.trainable_variables()]))
         # Train network
-        t_vars = tf.trainable_variables()
-        self.indices = tf.range(0, tf.reduce_sum([tf.reduce_prod(v.shape) for v in tf.trainable_variables()]))
+
+        # Set targets and masks
+        self.valid_spatial_action = tf.placeholder(tf.float32, [None], name='valid_spatial_action')
+        self.spatial_action_selected = tf.placeholder(tf.float32, [None, SCREEN_SIZE[0]**2], name='spatial_action_selected')
+        self.valid_non_spatial_action = tf.placeholder(tf.float32, [None, len(actions.FUNCTIONS)], name='valid_non_spatial_action')
+        self.non_spatial_action_selected = tf.placeholder(tf.float32, [None, len(actions.FUNCTIONS)], name='non_spatial_action_selected')
+        self.value_target = tf.placeholder(tf.float32, [None], name='value_target')
+
+        # Compute log probability
+        spatial_action_prob = tf.reduce_sum(self.spatial_action * self.spatial_action_selected, axis=1)
+        spatial_action_log_prob = tf.log(tf.clip_by_value(spatial_action_prob, 1e-10, 1.))
+        non_spatial_action_prob = tf.reduce_sum(self.non_spatial_action * self.non_spatial_action_selected, axis=1)
+        valid_non_spatial_action_prob = tf.reduce_sum(self.non_spatial_action * self.valid_non_spatial_action, axis=1)
+        valid_non_spatial_action_prob = tf.clip_by_value(valid_non_spatial_action_prob, 1e-10, 1.)
+        non_spatial_action_prob = non_spatial_action_prob / valid_non_spatial_action_prob
+        non_spatial_action_log_prob = tf.log(tf.clip_by_value(non_spatial_action_prob, 1e-10, 1.))
+
+        # Policy loss and value loss
+        action_log_prob = self.valid_spatial_action * spatial_action_log_prob + non_spatial_action_log_prob
+        advantage = tf.stop_gradient(self.value_target - self.value)
+        policy_loss = - tf.reduce_mean(action_log_prob * advantage)
+        value_loss = - tf.reduce_mean(self.value * advantage)
+        loss = policy_loss + value_loss # Policy penalty
+
+        # Build the optimizer
+        opt = tf.train.RMSPropOptimizer(self.learning_rate, decay=0.99, epsilon=1e-10)
+        grads = opt.compute_gradients(loss)
+        self.train_op = opt.apply_gradients(grads)
 
     """ Choose actions based on observation (timestep) """
     def step(self, timestep):
@@ -151,8 +179,81 @@ class TestAgent():
 
     """ Train agent """
     def update(self):
-        #print("Update agent here")
-        pass
+
+        # Get the records from episode
+        experiences = np.array(self.replay.get_all())
+        num_experiences = len(experiences)
+
+        # Compute R, value of last observation
+        last_obs = experiences[-1][-1]
+        minimap = np.array(last_obs['feature_minimap'], dtype = np.float32)
+        minimap = np.expand_dims(minimap, axis = 0)
+        screen = np.array(last_obs['feature_screen'], dtype = np.float32)
+        screen = np.expand_dims(screen, axis = 0)
+        info = np.zeros([1, NUM_ACTIONS], dtype = np.float32)
+        info[0, last_obs['available_actions']] = 1
+
+        feed_dict = {self.minimap: minimap,
+                self.screen: screen,
+                self.non_spatial: info}
+        R = self.tf_session.run(self.value, feed_dict)[0]
+
+        # Compute targets and masks
+        minimaps = []
+        screens = []
+        non_spatials = []
+
+        value_target = np.zeros([num_experiences], dtype=np.float32)
+        value_target[-1] = R
+
+        valid_spatial_action = np.zeros([num_experiences], dtype=np.float32)
+        spatial_action_selected = np.zeros([num_experiences, SCREEN_SIZE[0]**2], dtype=np.float32)
+        valid_non_spatial_action = np.zeros([num_experiences, NUM_ACTIONS], dtype=np.float32)
+        non_spatial_action_selected = np.zeros([num_experiences, NUM_ACTIONS], dtype=np.float32)
+
+        experiences = experiences[::-1]
+        for i, [obs, action, reward, next_obs] in enumerate(experiences):
+            minimap = np.array(obs['feature_minimap'], dtype=np.float32)
+            minimap = np.expand_dims(minimap, axis=0)
+            screen = np.array(obs['feature_screen'], dtype=np.float32)
+            screen = np.expand_dims(screen, axis=0)
+            info = np.zeros([1, NUM_ACTIONS], dtype=np.float32)
+            info[0, obs['available_actions']] = 1
+
+            minimaps.append(minimap)
+            screens.append(screen)
+            non_spatials.append(info)
+
+            act_id = action.function
+            act_args = action.arguments
+
+            value_target[i] = reward + 0.99 * value_target[i-1]
+
+            valid_actions = obs["available_actions"]
+            valid_non_spatial_action[i, valid_actions] = 1
+            non_spatial_action_selected[i, act_id] = 1
+
+            args = actions.FUNCTIONS[act_id].args
+            for arg, act_arg in zip(args, act_args):
+                if arg.name in ('screen', 'minimap', 'screen2'):
+                    ind = act_arg[1] * SCREEN_SIZE[0] + act_arg[0]
+                    valid_spatial_action[i] = 1
+                    spatial_action_selected[i, ind] = 1
+
+        minimaps = np.concatenate(minimaps, axis=0)
+        screens = np.concatenate(screens, axis=0)
+        non_spatials = np.concatenate(non_spatials, axis=0)
+
+        # Train
+        feed = {self.minimap: minimaps,
+            self.screen: screens,
+            self.non_spatial: non_spatials,
+            self.value_target: value_target,
+            self.valid_spatial_action: valid_spatial_action,
+            self.spatial_action_selected: spatial_action_selected,
+            self.valid_non_spatial_action: valid_non_spatial_action,
+            self.non_spatial_action_selected: non_spatial_action_selected}
+        self.tf_session.run(self.train_op, feed_dict=feed)
 
     """ Setup agent """
     def setup(self, tf_session):
@@ -162,3 +263,4 @@ class TestAgent():
     """ Reset agent """
     def reset(self):
         self.episodes += 1
+        self.replay.clear()

@@ -28,7 +28,8 @@ def preprocess_minimap(minimap):
         if feature.type == features.FeatureType.CATEGORICAL:
             one_hot = tf.one_hot(
                 minimap_feature,
-                depth=feature.scale)
+                depth=feature.scale,
+                axis = -1)
             preprocessed_feature = tf.layers.conv2d(
                 inputs=one_hot,
                 filters=1,
@@ -73,7 +74,8 @@ def preprocess_screen(screen):
         if feature.type == features.FeatureType.CATEGORICAL:
             one_hot = tf.one_hot(
                 screen_feature,
-                depth=feature.scale)
+                depth=feature.scale,
+                axis = -1)
             preprocessed_feature = tf.layers.conv2d(
                 inputs=one_hot,
                 filters=1,

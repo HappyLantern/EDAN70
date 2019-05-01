@@ -34,9 +34,9 @@ flags.DEFINE_bool("use_feature_units", False,
                   "Whether to include feature units.")
 flags.DEFINE_bool("disable_fog", False, "Whether to disable Fog of War.")
 
-flags.DEFINE_integer("max_agent_steps", 0, "Total agent steps.")
+flags.DEFINE_integer("max_agent_steps", 100000, "Total agent steps.")
 flags.DEFINE_integer("game_steps_per_episode", None, "Game steps per episode.")
-flags.DEFINE_integer("max_episodes", 1000, "Total episodes.")
+flags.DEFINE_integer("max_episodes", 10, "Total episodes.")
 flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
 
 flags.DEFINE_string("agent", "first_agent.TestAgent",
@@ -64,13 +64,16 @@ flags.DEFINE_bool("save_replay", True, "Whether to save a replay at the end.")
 flags.DEFINE_string("map", None, "Name of a map to use.")
 flags.mark_flag_as_required("map")
 
-def run_loop(agent, env, max_agent_steps, max_episodes):
+def run_loop(agent, env, max_steps, max_episodes):
 
-    total_frames = 0
+    total_steps = 0
     total_episodes = 0
     start_time = time.time()
 
-    tf_session = tf.Session()
+    # config = tf.ConfigProto(allow_soft_placement=True)
+    # config.gpu_options.allow_growth = True
+    gpu_options = tf.GPUOptions(allow_growth = True)
+    tf_session = tf.Session(config = tf.ConfigProto(gpu_options = gpu_options))
     agent.setup(tf_session)
 
     history = []
@@ -83,20 +86,22 @@ def run_loop(agent, env, max_agent_steps, max_episodes):
             # agent.reset()
 
             while not done:
-                total_frames += 1
+                total_steps += 1
                 # Ask agent for actions
                 action = agent.step(timestep[0])
 
                 # Apply actions to the environment.
                 old_timestep = timestep
                 timestep = env.step([action])
+                if (total_steps >= max_steps or timestep[0].last()):
+                    done = True
 
                 # Record the <s, a, r, s'> for training
                 agent.record_step(old_timestep[0].observation, action,
                                     timestep[0].reward, timestep[0].observation)
-
-                # Train the network after each episode
-                agent.update()
+            # Train the network after each episode
+            print("!---TRAINING---!")
+            agent.update()
     except KeyboardInterrupt:
         pass
     finally:
@@ -134,10 +139,7 @@ def main(unused_argv):
 
     players.append(sc2_env.Agent(sc2_env.Race[FLAGS.agent_race],
                                  FLAGS.agent_name or agent_name))
-
     run_thread(agent, players, FLAGS.map, FLAGS.render)
 
-
-#
 if __name__ == '__main__':
     app.run(main)
